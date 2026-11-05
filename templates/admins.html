@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block content %}
+<h1>관리자 계정</h1><p class="muted">여기에 등록된 occm.cc 계정이 마스토돈 로그인으로 이 관리 화면에 들어올 수 있습니다. 권한 회수는 즉시 적용됩니다.</p>
+<section class="panel"><h2>관리자 추가</h2><form method="post" class="formgrid">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="add">
+<label>occm.cc 계정 아이디<input name="acct" placeholder="예: admin" required></label><button class="primary">추가</button></form></section>
+<section class="panel"><h2>등록된 관리자</h2>
+<table><thead><tr><th>계정</th><th>구분</th><th>삭제</th></tr></thead><tbody>
+{% for a in env_accts %}<tr><td>@{{ a }}</td><td>처음부터 지정된 관리자 (화면에서 삭제 불가)</td><td>-</td></tr>{% endfor %}
+{% for r in rows %}<tr><td>@{{ r.acct }}</td><td>관리 화면 등록</td><td>{% if r.acct == me %}-{% else %}<form method="post"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="remove"><input type="hidden" name="acct" value="{{ r.acct }}"><button class="tiny danger">회수</button></form>{% endif %}</td></tr>{% endfor %}
+</tbody></table></section>{% endblock %}
+

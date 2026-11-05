@@ -1,0 +1,66 @@
+{% extends "base.html" %}{% block content %}
+<h1>사용자 관리</h1><p class="muted">봇과 맞팔로우된 사용자가 반응 키워드로 멘션을 보내면 <strong>자동으로 등록</strong>됩니다. 필요할 때만 직접 추가하거나 이용을 정지할 수 있습니다.</p>
+
+{% if bulk_preview %}
+<section class="panel" style="border: 2px solid #000;">
+<h2>사용자 일괄 등록 미리보기 (총 {{ bulk_preview|length }}명 분석됨)</h2>
+<p class="muted">파일에서 분석된 사용자입니다. 등록할 사용자를 체크한 뒤 아래 [선택한 사용자 일괄 등록하기] 버튼을 누르세요.</p>
+<form method="post">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+<input type="hidden" name="action" value="apply_bulk">
+<div style="margin: 8px 0;">
+  <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+    <input type="checkbox" id="check-all-users" checked onclick="document.querySelectorAll('.user-select-check').forEach(c => c.checked = this.checked)">
+    <strong>전체 선택 / 전체 해제</strong>
+  </label>
+</div>
+<table>
+<thead><tr><th style="width: 40px;">선택</th><th>계정 아이디</th><th>표시 이름</th><th>키워드</th></tr></thead>
+<tbody>
+{% for it in bulk_preview %}
+<tr>
+  <td><input type="checkbox" name="selected" value="{{ loop.index0 }}" class="user-select-check" checked></td>
+  <td>{{ it.acct }}<input type="hidden" name="acct_{{ loop.index0 }}" value="{{ it.acct }}"></td>
+  <td>{{ it.display_name or '-' }}<input type="hidden" name="display_name_{{ loop.index0 }}" value="{{ it.display_name or '' }}"></td>
+  <td>{{ it.keywords }}<input type="hidden" name="keywords_{{ loop.index0 }}" value="{{ it.keywords }}"></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+<div style="margin-top: 12px; display: flex; gap: 8px;">
+  <button class="primary">선택한 사용자 일괄 등록하기</button>
+  <a href="{{ url_for('users') }}" class="secondary" style="text-decoration:none; display:inline-block; padding: 6px 12px; border: 1px solid #000; color: #000;">취소</a>
+</div>
+</form>
+</section>
+{% endif %}
+
+<section class="panel"><h2>파일로 사용자 일괄 등록 (CSV / TXT)</h2>
+<p class="muted small">엑셀 CSV 또는 텍스트 파일을 업로드하면 자동으로 분석하여 미리보기를 제공합니다. (예시: <code>계정아이디, 표시이름, 키워드</code> 또는 줄바꿈 계정 목록)</p>
+<form method="post" enctype="multipart/form-data" class="inlineform" style="gap: 8px;">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+<input type="hidden" name="action" value="preview_bulk">
+<input type="file" name="file" accept=".csv, .txt, .tsv" required style="width: auto;">
+<button class="secondary">파일 분석 및 미리보기</button>
+</form>
+</section>
+<section class="panel"><h2>사용자 추가</h2><form method="post" class="formgrid">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="save">
+<label>계정 아이디<input name="acct" placeholder="username 또는 username@occm.cc" required></label>
+<label>표시 이름<input name="display_name"></label><label class="wide">키워드<input name="keywords" placeholder="조사, 탐사" required></label>
+<label class="check"><input type="checkbox" name="is_active" checked> 이용 허용</label><button class="primary">사용자 등록</button></form></section>
+<section class="panel"><h2>등록 사용자</h2><table><thead><tr><th>계정</th><th>키워드</th><th>상태</th><th>이번 주 사용 / 한도</th><th>상태 전환</th><th>수정</th><th>삭제</th></tr></thead><tbody>
+{% for user in users %}<tr class="{{ 'is-disabled' if not user.is_active else '' }}"><td><strong>{{ user.acct }}</strong><br><span class="muted">{{ user.display_name or '' }}</span></td><td>{{ (user.keywords or [])|join(', ') }}</td>
+<td>{% if user.is_active %}<span class="badge on">활성</span>{% else %}<span class="badge off">정지</span>{% endif %}</td>
+<td>{{ quota_map.get(user.id, 0) }} / {{ weekly_limit }}</td>
+<td class="actions-cell"><form method="post" style="display:inline;"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="toggle_active"><input type="hidden" name="acct" value="{{ user.acct }}">
+{% if user.is_active %}<button class="tiny danger">이용 정지</button>{% else %}<button class="tiny primary">정지 해제</button>{% endif %}</form></td>
+<td><details class="edit-box"><summary>수정</summary><form method="post"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="save"><input type="hidden" name="acct" value="{{ user.acct }}">
+<div class="edit-grid">
+<label>표시 이름<input name="display_name" value="{{ user.display_name or '' }}"></label>
+<label class="wide">키워드<input name="keywords" value="{{ (user.keywords or [])|join(', ') }}"></label>
+<div style="display:flex; align-items:center; gap:8px;"><label class="check" style="margin-bottom:6px;"><input type="checkbox" name="is_active" {% if user.is_active %}checked{% endif %}> 이용 허용</label><button class="tiny primary">저장</button></div>
+</div></form></details></td>
+<td><form method="post"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="delete"><input type="hidden" name="acct" value="{{ user.acct }}"><button class="tiny danger" onclick="return confirm('사용자를 삭제할까요? 기록은 보존됩니다.')">삭제</button></form></td></tr>
+{% else %}<tr><td colspan="7" class="muted">등록된 사용자가 없습니다.</td></tr>{% endfor %}
+</tbody></table></section>{% endblock %}

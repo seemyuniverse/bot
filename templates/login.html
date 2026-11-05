@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block content %}
+<section class="login panel">
+<h1>관리자 로그인</h1><p class="muted">{{ server }} 계정으로 로그인합니다. 등록된 관리자 계정만 접속할 수 있습니다.</p>
+{% if oauth_enabled %}
+<p><a href="{{ url_for('oauth_start') }}" class="primary" style="display: block; text-align: center; text-decoration: none; padding: 10px; border: 1px solid #000; color: #000; background: #fff;">마스토돈({{ server.replace('https://','') }})으로 로그인</a></p>
+{% else %}
+<p class="muted">마스토돈 로그인이 설정되지 않았습니다. (MASTODON_CLIENT_ID / MASTODON_CLIENT_SECRET)</p>
+{% endif %}
+{% if password_enabled %}
+<details><summary class="muted small">비상용 비밀번호 로그인</summary>
+<form method="post">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+<label>관리자 아이디<input name="username" autocomplete="username" required></label>
+<label>비밀번호<input type="password" name="password" autocomplete="current-password" required></label>
+<button class="primary">로그인</button>
+</form></details>
+{% endif %}
+</section>
+{% endblock %}

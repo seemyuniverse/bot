@@ -1,0 +1,85 @@
+{% extends "base.html" %}{% block content %}
+<h1>보상 아이템 관리</h1>
+<p class="muted">보상은 2단계로 추첨됩니다. 1) 등급을 확률로 뽑고 2) 그 등급 안에서 아이템 확률로 하나를 뽑습니다. 입력하는 확률은 서로 비교하는 숫자라서 합이 100일 필요는 없고, 숫자가 클수록 잘 나옵니다. 실제로 나오는 비율은 '실제 확률(%)'에서 확인하세요.</p>
+
+{% if bulk_preview %}
+<section class="panel" style="border: 2px solid #000;">
+<h2>아이템 일괄 등록 미리보기 (총 {{ bulk_preview|length }}개 항목 분석됨)</h2>
+<p class="muted">파일에서 분석된 항목입니다. 등록할 항목을 체크한 뒤 아래 [선택한 항목 일괄 등록하기] 버튼을 누르세요.</p>
+<form method="post">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+<input type="hidden" name="action" value="apply_bulk">
+<div style="margin: 8px 0;">
+  <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+    <input type="checkbox" id="check-all-items" checked onclick="document.querySelectorAll('.item-select-check').forEach(c => c.checked = this.checked)">
+    <strong>전체 선택 / 전체 해제</strong>
+  </label>
+</div>
+<table>
+<thead><tr><th style="width: 40px;">선택</th><th>아이템 이름</th><th>등급</th><th>확률</th><th>설명</th></tr></thead>
+<tbody>
+{% for it in bulk_preview %}
+<tr>
+  <td><input type="checkbox" name="selected" value="{{ loop.index0 }}" class="item-select-check" checked></td>
+  <td>{{ it.name }}<input type="hidden" name="name_{{ loop.index0 }}" value="{{ it.name }}"></td>
+  <td>{{ it.grade }}<input type="hidden" name="grade_{{ loop.index0 }}" value="{{ it.grade }}"></td>
+  <td>{{ it.weight }}<input type="hidden" name="weight_{{ loop.index0 }}" value="{{ it.weight }}"></td>
+  <td>{{ it.description or '-' }}<input type="hidden" name="description_{{ loop.index0 }}" value="{{ it.description or '' }}"></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+<div style="margin-top: 12px; display: flex; gap: 8px;">
+  <button class="primary">선택한 항목 일괄 등록하기</button>
+  <a href="{{ url_for('items') }}" class="secondary" style="text-decoration:none; display:inline-block; padding: 6px 12px; border: 1px solid #000; color: #000;">취소</a>
+</div>
+</form>
+</section>
+{% endif %}
+
+<section class="panel"><h2>파일로 아이템 일괄 등록 (CSV / TXT)</h2>
+<p class="muted small">엑셀 CSV 또는 텍스트 파일을 업로드하면 자동으로 분석하여 미리보기를 제공합니다. (예시: <code>아이템명, 등급, 확률, 설명</code> 또는 <code>[등급]</code> 아래 나열)</p>
+<form method="post" enctype="multipart/form-data" class="inlineform" style="gap: 8px;">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+<input type="hidden" name="action" value="preview_bulk">
+<input type="file" name="file" accept=".csv, .txt, .tsv" required style="width: auto;">
+<button class="secondary">파일 분석 및 미리보기</button>
+</form>
+</section>
+
+<section class="panel"><h2>등급별 출현 확률</h2>
+<form method="post" class="formgrid"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="save_grade">
+<label>새 등급 이름<input name="name" required></label><label>확률(클수록 잘 나옴)<input type="number" name="probability" min="0" step="0.01" value="1" required></label><button class="primary">등급 추가</button></form>
+<table><thead><tr><th>등급</th><th>확률</th><th>실제 확률(%)</th><th>수정</th><th>삭제</th></tr></thead><tbody>
+{% for g in grades %}<tr><td>{{ g.name }}</td><td>{{ g.probability }}</td><td>{{ ('%.2f'|format(grade_prob[g.name])) ~ '%' if g.name in grade_prob else '-' }}</td>
+<td><details><summary>수정</summary><form method="post" class="inlineform"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="save_grade"><input type="hidden" name="grade_id" value="{{ g.id }}"><input name="name" value="{{ g.name }}" required><input type="number" name="probability" min="0" step="0.01" value="{{ g.probability }}" required><button class="tiny primary">저장</button></form></details></td>
+<td><form method="post" onsubmit="return confirm('삭제할까요?')"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="delete_grade"><input type="hidden" name="grade_id" value="{{ g.id }}"><button class="tiny danger">삭제</button></form></td></tr>
+{% else %}<tr><td colspan="5">등급이 없습니다. 먼저 등급을 추가하세요.</td></tr>{% endfor %}
+</tbody></table>
+<p class="muted small">'실제 확률(%)'은 추첨 가능한 아이템이 있는 등급끼리 다시 계산한 값입니다.</p></section>
+
+<section class="panel"><h2>아이템 추가</h2><form method="post" class="formgrid">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="save">
+<label>아이템 이름<input name="name" required></label>
+<label>등급<select name="grade" required>{% for g in grades %}<option value="{{ g.name }}">{{ g.name }}</option>{% endfor %}</select></label>
+<label>등급 안에서의 확률(클수록 잘 나옴)<input type="number" name="weight" min="0" step="0.01" value="1" required></label>
+<label>설명(참고용, 답글에는 출력되지 않음)<input name="description"></label>
+<label class="check"><input type="checkbox" name="is_active" checked> 추첨에 포함</label><button class="primary">추가</button></form></section>
+
+<section class="panel"><h2>등록 아이템</h2>
+<table><thead><tr><th>아이템</th><th>등급</th><th>등급 안에서의 확률</th><th>실제 확률(%)</th><th>상태</th><th>수정</th><th>상태 전환</th><th>삭제</th></tr></thead><tbody>
+{% for item in items %}<tr class="{{ 'is-disabled' if not item.is_active else '' }}"><td title="{{ item.description or '' }}"><strong>{{ item.name }}</strong></td><td>{{ item.grade }}</td><td>{{ item.weight }}</td><td>{{ ('%.2f'|format(chances[item.id])) ~ '%' if item.id in chances else '-' }}</td>
+<td>{% if item.is_active %}<span class="badge on">활성</span>{% else %}<span class="badge off">비활성</span>{% endif %}</td>
+<td><details class="edit-box"><summary>수정</summary><form method="post"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="save"><input type="hidden" name="item_id" value="{{ item.id }}">
+<div class="edit-grid">
+<label>아이템 이름<input name="name" value="{{ item.name }}" required></label>
+<label>등급<select name="grade">{% for g in grades %}<option value="{{ g.name }}" {% if g.name == item.grade %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></label>
+<label>확률<input type="number" name="weight" min="0" step="0.01" value="{{ item.weight }}" required></label>
+<label>설명<input name="description" value="{{ item.description or '' }}" placeholder="설명"></label>
+<div style="display:flex; align-items:center; gap:8px;"><label class="check" style="margin-bottom:6px;"><input type="checkbox" name="is_active" {% if item.is_active %}checked{% endif %}> 활성</label><button class="tiny primary">저장</button></div>
+</div></form></details></td>
+<td class="actions-cell"><form method="post" style="display:inline;"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="toggle_active"><input type="hidden" name="item_id" value="{{ item.id }}">
+{% if item.is_active %}<button class="tiny danger">비활성화</button>{% else %}<button class="tiny primary">재활성화</button>{% endif %}</form></td>
+<td><form method="post" onsubmit="return confirm('완전히 삭제할까요? 되돌릴 수 없습니다.')"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="purge"><input type="hidden" name="item_id" value="{{ item.id }}"><button class="tiny danger">삭제</button></form></td></tr>
+{% else %}<tr><td colspan="8">등록된 아이템이 없습니다.</td></tr>{% endfor %}
+</tbody></table></section>{% endblock %}

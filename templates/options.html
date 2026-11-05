@@ -1,0 +1,75 @@
+{% extends "base.html" %}{% block content %}
+<h1>랜덤 요소 관리</h1><p class="muted">답글에 들어가는 지역·구역 등급·구역 유형·부상 부위·부상 종류 목록입니다. 확률은 서로 비교하는 숫자입니다. 예를 들어 3과 1이면 75%와 25%로 나옵니다. 사용을 끄면 뽑히지 않습니다.</p>
+
+{% if bulk_preview %}
+<section class="panel" style="border: 2px solid #000;">
+<h2>랜덤 요소 일괄 등록 미리보기 (총 {{ bulk_preview|length }}개 항목 분석됨)</h2>
+<p class="muted">파일에서 분석된 항목입니다. 등록할 항목을 체크한 뒤 아래 [선택한 항목 일괄 등록하기] 버튼을 누르세요.</p>
+<form method="post">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+<input type="hidden" name="action" value="apply_bulk">
+<div style="margin: 8px 0;">
+  <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+    <input type="checkbox" id="check-all-options" checked onclick="document.querySelectorAll('.option-select-check').forEach(c => c.checked = this.checked)">
+    <strong>전체 선택 / 전체 해제</strong>
+  </label>
+</div>
+<table>
+<thead><tr><th style="width: 40px;">선택</th><th>분류</th><th>값(내용)</th><th>확률</th></tr></thead>
+<tbody>
+{% for it in bulk_preview %}
+<tr>
+  <td><input type="checkbox" name="selected" value="{{ loop.index0 }}" class="option-select-check" checked></td>
+  <td>{{ category_labels.get(it.category, it.category) }}<input type="hidden" name="category_{{ loop.index0 }}" value="{{ it.category }}"></td>
+  <td>{{ it.value }}<input type="hidden" name="value_{{ loop.index0 }}" value="{{ it.value }}"></td>
+  <td>{{ it.weight }}<input type="hidden" name="weight_{{ loop.index0 }}" value="{{ it.weight }}"></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+<div style="margin-top: 12px; display: flex; gap: 8px;">
+  <button class="primary">선택한 항목 일괄 등록하기</button>
+  <a href="{{ url_for('options') }}" class="secondary" style="text-decoration:none; display:inline-block; padding: 6px 12px; border: 1px solid #000; color: #000;">취소</a>
+</div>
+</form>
+</section>
+{% endif %}
+
+<section class="panel"><h2>파일로 랜덤 요소 일괄 등록 (CSV / TXT)</h2>
+<p class="muted small">엑셀 CSV 또는 텍스트 파일을 업로드하면 자동으로 분석하여 미리보기를 제공합니다. (예시: <code>분류, 내용, 확률</code> 또는 <code>[지역]</code> 아래 목록 나열)</p>
+<form method="post" enctype="multipart/form-data" class="inlineform" style="gap: 8px;">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+<input type="hidden" name="action" value="preview_bulk">
+<label style="display:inline-flex; flex-direction:row; align-items:center; gap:4px;">기본 분류:
+<select name="default_category" style="width:auto;">
+  <option value="region">지역</option>
+  <option value="zone_grade">구역 등급</option>
+  <option value="zone_type">구역 유형</option>
+  <option value="body_part">부상 부위</option>
+  <option value="injury">부상 종류</option>
+</select></label>
+<input type="file" name="file" accept=".csv, .txt, .tsv" required style="width: auto;">
+<button class="secondary">파일 분석 및 미리보기</button>
+</form>
+</section>
+{% for g in groups %}
+<section class="panel" id="{{ g.key }}"><h2>{{ g.label }} <span class="muted small">답글에서 쓰이는 자리: {{ g.hint }}</span></h2>
+<form method="post" class="formgrid"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="save"><input type="hidden" name="category" value="{{ g.key }}">
+<label>새 값<input name="value" required></label><label>확률(클수록 잘 나옴)<input type="number" name="weight" min="0" step="0.01" value="1" required></label>
+<label class="check"><input type="checkbox" name="is_active" checked> 사용</label><button class="primary">추가</button></form>
+<table><thead><tr><th>값</th><th>확률</th><th>실제 확률(%)</th><th>상태</th><th>수정</th><th>상태 전환</th><th>삭제</th></tr></thead><tbody>
+{% for r in g.rows %}<tr class="{{ 'is-disabled' if not r.is_active else '' }}"><td><strong>{{ r.value }}</strong></td><td>{{ r.weight }}</td><td>{{ ('%.1f'|format(r.weight / g.total * 100)) ~ '%' if r.is_active and r.weight > 0 and g.total > 0 else '-' }}</td>
+<td>{% if r.is_active %}<span class="badge on">사용</span>{% else %}<span class="badge off">중지</span>{% endif %}</td>
+<td><details class="edit-box"><summary>수정</summary><form method="post"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="save"><input type="hidden" name="category" value="{{ g.key }}"><input type="hidden" name="option_id" value="{{ r.id }}">
+<div class="edit-grid">
+<label>값<input name="value" value="{{ r.value }}" required></label>
+<label>확률<input type="number" name="weight" min="0" step="0.01" value="{{ r.weight }}" required></label>
+<div style="display:flex; align-items:center; gap:8px;"><label class="check" style="margin-bottom:6px;"><input type="checkbox" name="is_active" {% if r.is_active %}checked{% endif %}> 사용</label><button class="tiny primary">저장</button></div>
+</div></form></details></td>
+<td class="actions-cell"><form method="post" style="display:inline;"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="toggle_active"><input type="hidden" name="option_id" value="{{ r.id }}">
+{% if r.is_active %}<button class="tiny secondary">중지</button>{% else %}<button class="tiny primary">사용 재개</button>{% endif %}</form></td>
+<td><form method="post" onsubmit="return confirm('삭제할까요?')"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="delete"><input type="hidden" name="category" value="{{ g.key }}"><input type="hidden" name="option_id" value="{{ r.id }}"><button class="tiny danger">삭제</button></form></td></tr>
+{% else %}<tr><td colspan="7">등록된 값이 없습니다. 하나 이상 추가해야 봇이 응답합니다.</td></tr>{% endfor %}
+</tbody></table></section>
+{% endfor %}{% endblock %}
+

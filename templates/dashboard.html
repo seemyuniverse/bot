@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block content %}
+<div class="heading"><div><h1>운영 대시보드</h1><p class="muted">한국 시간 {{ kst_now.strftime('%Y-%m-%d %H:%M') }}</p></div>
+<form method="post" action="{{ url_for('pause') }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="paused" value="{{ 'false' if settings.is_paused else 'true' }}"><button class="{{ 'danger' if not settings.is_paused else 'primary' }}">{{ '봇 재개' if settings.is_paused else '전체 봇 일시 정지' }}</button></form></div>
+{% if settings.is_paused %}<div class="flash error">봇이 일시 정지 상태입니다. 멘션에 응답하지 않습니다.</div>{% endif %}
+<div class="stats">
+<div class="stat"><span>등록 사용자</span><strong>{{ users_count }}</strong></div>
+<div class="stat"><span>활성 아이템</span><strong>{{ items_count }}</strong></div>
+<div class="stat"><span>이번 주 응답 로그</span><strong>{{ responses }}</strong></div>
+</div>
+<section class="panel"><h2>최근 응답 및 처리 내역</h2>
+<table><thead><tr><th>시간</th><th>사용자</th><th>결과</th><th>아이템</th><th>상세</th></tr></thead><tbody>
+{% for row in recent %}<tr><td>{{ row.created_at.strftime('%m-%d %H:%M') if row.created_at else '' }}</td><td>{{ row.acct_snapshot }}</td><td><span class="pill">{{ row.outcome|outcome_label }}</span></td><td>{{ row.loot_name or '-' }}</td><td class="small">{{ row.detail or (row.response_text or '') }}</td></tr>{% else %}<tr><td colspan="5" class="muted">기록이 없습니다.</td></tr>{% endfor %}
+</tbody></table></section>
+{% endblock %}

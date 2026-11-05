@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title or "게이트 관리센터" }}</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="toast-container" id="toast-container">
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}<div class="toast {{ category }}">{{ message }}</div>{% endfor %}
+{% endwith %}
+</div>
+<header class="top"><a href="{{ url_for('dashboard') }}" class="brand">게이트 관리센터</a>
+{% if session.get('admin_logged_in') %}
+<nav><a href="{{ url_for('users') }}">사용자</a><a href="{{ url_for('items') }}">아이템</a><a href="{{ url_for('options') }}">랜덤 요소</a><a href="{{ url_for('settings') }}">운영 설정</a><a href="{{ url_for('admins') }}">관리자</a><a href="{{ url_for('logs') }}">기록</a>
+<form method="post" action="{{ url_for('logout') }}" class="inline"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="linkbtn">로그아웃</button></form></nav>
+{% endif %}
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer>마스토돈 조사 자동응답 봇 · 운영 관리자 전용</footer>
+<script>
+document.querySelectorAll('.toast').forEach(function(el) {
+  el.addEventListener('click', function() { el.remove(); });
+  setTimeout(function() {
+    if (el.parentNode) el.remove();
+  }, 3500);
+});
+</script>
+</body></html>
